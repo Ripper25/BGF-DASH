@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="300" height="150" viewBox="0 0 300 150">
+  <g>
+    <!-- Arc shapes -->
+    <path d="M60,100 Q150,20 240,100" stroke="#9A2A2A" stroke-width="8" fill="none" />
+    <path d="M60,120 Q150,80 240,120" stroke="#333333" stroke-width="4" fill="none" />
+    
+    <!-- Text -->
+    <text x="0" y="145" font-family="Arial, sans-serif" font-size="24" font-weight="normal" fill="#9A2A2A">Bridging</text>
+    <text x="120" y="145" font-family="Arial, sans-serif" font-size="28" font-weight="bold" fill="#9A2A2A">gaps</text>
+    <text x="0" y="170" font-family="Arial, sans-serif" font-size="20" font-weight="normal" fill="#333333">Foundation</text>
+  </g>
+</svg>
