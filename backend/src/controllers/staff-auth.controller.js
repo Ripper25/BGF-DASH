@@ -4,7 +4,7 @@ const { USER_ROLES } = require('../models/user.model');
 // Staff access codes - in a real app, these would be stored in a database
 const STAFF_CODES = {
   'APO001': { name: 'Field Officer', role: USER_ROLES.ASSISTANT_PROJECT_OFFICER },
-  'RPM001': { name: 'Project Manager', role: USER_ROLES.PROJECT_MANAGER },
+  'PM001': { name: 'Project Manager', role: USER_ROLES.PROJECT_MANAGER },
   'HOP001': { name: 'Program Manager', role: USER_ROLES.HEAD_OF_PROGRAMS },
   'DIR001': { name: 'Director', role: USER_ROLES.DIRECTOR },
   'CEO001': { name: 'Chief Executive', role: USER_ROLES.CEO },
