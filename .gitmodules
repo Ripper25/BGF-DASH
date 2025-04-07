@@ -1,2 +1,7 @@
 # This file intentionally left empty
 # No submodules are used in this project
+
+# Explicitly state that there is no bgf-dashboard submodule
+[submodule "bgf-dashboard"]
+	path = bgf-dashboard
+	url = https://github.com/Ripper25/bgf-dash.git
