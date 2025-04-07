@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { FiUser, FiUsers, FiInfo } from 'react-icons/fi';
 
 export default function Home() {
@@ -10,9 +11,14 @@ export default function Home() {
       <div className="flex-1 flex items-center justify-center p-6">
         <div className="w-full max-w-4xl">
           <div className="text-center mb-12">
-            <h1 className="text-4xl md:text-5xl font-playfair font-bold text-bgf-burgundy mb-4">
-              Bridging Gaps Foundation
-            </h1>
+            <Image
+              src="/logo.png"
+              alt="Bridging Gaps Foundation"
+              width={300}
+              height={150}
+              className="mx-auto mb-6"
+            />
+
             <p className="text-xl text-text-secondary max-w-2xl mx-auto">
               Empowering communities through sustainable development initiatives
             </p>

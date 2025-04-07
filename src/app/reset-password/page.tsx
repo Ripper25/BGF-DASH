@@ -20,7 +20,7 @@ export default function ResetPassword() {
     // Check if we have a reset token in the URL
     const checkResetToken = async () => {
       const { data } = await supabase.auth.getSession();
-      
+
       if (data.session) {
         setHasResetToken(true);
       } else {
@@ -28,13 +28,13 @@ export default function ResetPassword() {
         const hash = window.location.hash;
         const query = new URLSearchParams(hash.substring(1));
         const accessToken = query.get('access_token');
-        
+
         if (accessToken) {
           const { error } = await supabase.auth.setSession({
             access_token: accessToken,
             refresh_token: '',
           });
-          
+
           if (!error) {
             setHasResetToken(true);
           } else {
@@ -45,43 +45,43 @@ export default function ResetPassword() {
         }
       }
     };
-    
+
     checkResetToken();
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    
+
     if (!password) {
       setError('Please enter a new password');
       return;
     }
-    
+
     if (password.length < 8) {
       setError('Password must be at least 8 characters');
       return;
     }
-    
+
     if (password !== confirmPassword) {
       setError('Passwords do not match');
       return;
     }
-    
+
     try {
       setLoading(true);
-      
+
       // Update password
       const { error: updateError } = await supabase.auth.updateUser({
         password,
       });
-      
+
       if (updateError) {
         throw new Error(updateError.message);
       }
-      
+
       setSuccess(true);
-      
+
       // Redirect to login after 3 seconds
       setTimeout(() => {
         router.push(ROUTES.LOGIN);
@@ -98,11 +98,11 @@ export default function ResetPassword() {
     <div className="min-h-screen bg-cream flex flex-col justify-center items-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <Image 
-            src="/assets/logo.svg" 
-            alt="Bridging Gaps Foundation" 
-            width={250} 
-            height={100} 
+          <Image
+            src="/logo.png"
+            alt="Bridging Gaps Foundation"
+            width={250}
+            height={100}
             className="mx-auto mb-6"
           />
           <h1 className="text-3xl font-playfair font-bold text-bgf-burgundy">Reset Password</h1>
@@ -116,7 +116,7 @@ export default function ResetPassword() {
               <p className="text-terracotta text-sm">{error}</p>
             </div>
           )}
-          
+
           {success ? (
             <div className="text-center">
               <div className="w-16 h-16 bg-forest-green/10 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -149,7 +149,7 @@ export default function ResetPassword() {
                 </div>
                 <p className="text-text-muted text-sm mt-1">Password must be at least 8 characters</p>
               </div>
-              
+
               <div className="mb-6">
                 <label htmlFor="confirmPassword" className="block text-text-secondary font-medium mb-2">
                   Confirm New Password

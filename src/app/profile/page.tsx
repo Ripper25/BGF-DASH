@@ -1,16 +1,166 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
-import { FiUser, FiMail, FiPhone, FiMapPin, FiLock, FiSave, FiCamera } from 'react-icons/fi';
+import { FiUser, FiMail, FiPhone, FiMapPin, FiLock, FiSave, FiCamera, FiUpload, FiCheckCircle } from 'react-icons/fi';
 import { useAuth } from '@/contexts/AuthContext';
+
+// Dynamically import components
+const DeleteAccountModal = dynamic(() => import('@/components/auth/DeleteAccountModal'), {
+  ssr: false,
+});
+
+const LoginSessionsList = dynamic(() => import('@/components/auth/LoginSessionsList'), {
+  ssr: false,
+});
 import { USER_ROLES } from '@/lib/supabase';
+import Avatar from '@/components/ui/Avatar';
+import { avatarService } from '@/services/avatar.service';
+import { authService } from '@/services/auth.service';
 
 export default function Profile() {
-  const { user } = useAuth();
+  const { user, setUser } = useAuth();
   const [activeTab, setActiveTab] = useState<string>('profile');
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [profileData, setProfileData] = useState({
+    full_name: '',
+    phone_number: '',
+    address: ''
+  });
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (user?.id) {
+      // Try to get the avatar URL from the user object first
+      if (user.avatar_url) {
+        setAvatarUrl(user.avatar_url);
+      } else {
+        // Otherwise, fetch it from the avatar service
+        const fetchAvatarUrl = async () => {
+          try {
+            const url = await avatarService.getAvatarUrl(user.id);
+            setAvatarUrl(url);
+
+            // Update the user object with the avatar URL
+            if (url && setUser) {
+              setUser({ ...user, avatar_url: url });
+            }
+          } catch (error) {
+            console.error('Error fetching avatar URL:', error);
+          }
+        };
+
+        fetchAvatarUrl();
+      }
+    }
+  }, [user?.id, user?.avatar_url]);
+
+  // Initialize profile data from user object
+  useEffect(() => {
+    if (user) {
+      setProfileData({
+        full_name: user.full_name || '',
+        phone_number: user.phone_number || '',
+        address: user.address || ''
+      });
+    }
+  }, [user]);
+
+  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!user?.id || !event.target.files || event.target.files.length === 0) {
+      return;
+    }
+
+    const file = event.target.files[0];
+    setIsUploading(true);
+    setUploadError(null);
+
+    try {
+      // Upload the avatar
+      const url = await avatarService.uploadAvatar(user.id, file);
+
+      // Update the avatar URL in the UI
+      setAvatarUrl(url);
+
+      // Update the user object with the new avatar URL
+      if (setUser) {
+        setUser({ ...user, avatar_url: url });
+      }
+
+      // Show success message or notification
+      console.log('Avatar uploaded successfully');
+    } catch (error: any) {
+      console.error('Avatar upload error:', error);
+      setUploadError(error.message || 'Failed to upload avatar');
+    } finally {
+      setIsUploading(false);
+
+      // Reset the file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleAvatarClick = () => {
+    // Trigger the file input click
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  // Handle profile form changes
+  const handleProfileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setProfileData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  // Handle profile save
+  const handleProfileSave = async () => {
+    if (!user?.id) return;
+
+    try {
+      setIsSaving(true);
+      setSaveError(null);
+      setSaveSuccess(false);
+
+      // Call the API to update the user profile
+      const updatedUser = await authService.updateProfile(user.id, profileData);
+
+      // Update the user in the context
+      if (updatedUser && setUser) {
+        setUser({
+          ...user,
+          ...updatedUser
+        });
+      }
+
+      // Show success message
+      setSaveSuccess(true);
+
+      // Hide success message after 3 seconds
+      setTimeout(() => {
+        setSaveSuccess(false);
+      }, 3000);
+    } catch (error: any) {
+      console.error('Error updating profile:', error);
+      setSaveError(error.message || 'Failed to update profile');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const getRoleName = (role?: string): string => {
     if (!role) return 'User';
@@ -44,12 +194,43 @@ export default function Profile() {
           <Card className="p-6">
             <div className="flex flex-col items-center">
               <div className="relative mb-4">
-                <div className="w-32 h-32 rounded-full bg-bgf-burgundy flex items-center justify-center text-cream">
-                  <FiUser size={64} />
+                {/* Hidden file input for avatar upload */}
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  className="hidden"
+                  accept="image/jpeg,image/png,image/gif,image/webp"
+                  onChange={handleAvatarUpload}
+                />
+
+                {/* Avatar display */}
+                <div className="relative">
+                  <Avatar
+                    url={avatarUrl}
+                    size="xl"
+                    alt={user?.full_name || 'User avatar'}
+                  />
+
+                  {/* Upload button */}
+                  <button
+                    type="button"
+                    className="absolute bottom-0 right-0 bg-white rounded-full p-2 shadow-md border border-slate-gray/20 hover:bg-gray-100 transition-colors"
+                    onClick={handleAvatarClick}
+                    disabled={isUploading}
+                    aria-label="Upload avatar"
+                  >
+                    {isUploading ? (
+                      <div className="w-[18px] h-[18px] border-2 border-t-transparent border-bgf-burgundy rounded-full animate-spin" />
+                    ) : (
+                      <FiCamera size={18} />
+                    )}
+                  </button>
                 </div>
-                <button className="absolute bottom-0 right-0 bg-white rounded-full p-2 shadow-md border border-slate-gray/20">
-                  <FiCamera size={18} />
-                </button>
+
+                {/* Error message */}
+                {uploadError && (
+                  <p className="text-red-500 text-xs mt-2">{uploadError}</p>
+                )}
               </div>
 
               <h2 className="text-xl font-playfair font-semibold">{user?.full_name || 'User Name'}</h2>
@@ -98,7 +279,9 @@ export default function Profile() {
                       </div>
                       <input
                         type="text"
-                        defaultValue={user?.full_name || ''}
+                        name="full_name"
+                        value={profileData.full_name}
+                        onChange={handleProfileChange}
                         className="w-full pl-10 pr-4 py-3 border border-slate-gray/30 rounded-md focus:outline-none focus:ring-1 focus:ring-gold"
                       />
                     </div>
@@ -133,7 +316,9 @@ export default function Profile() {
                       </div>
                       <input
                         type="tel"
-                        defaultValue={user?.phone_number || ''}
+                        name="phone_number"
+                        value={profileData.phone_number}
+                        onChange={handleProfileChange}
                         className="w-full pl-10 pr-4 py-3 border border-slate-gray/30 rounded-md focus:outline-none focus:ring-1 focus:ring-gold"
                       />
                     </div>
@@ -161,7 +346,9 @@ export default function Profile() {
                       <FiMapPin className="text-text-muted" />
                     </div>
                     <textarea
-                      defaultValue={user?.address || ''}
+                      name="address"
+                      value={profileData.address}
+                      onChange={handleProfileChange as any}
                       className="w-full pl-10 pr-4 py-3 border border-slate-gray/30 rounded-md focus:outline-none focus:ring-1 focus:ring-gold"
                       rows={3}
                     ></textarea>
@@ -169,9 +356,35 @@ export default function Profile() {
                 </div>
 
                 <div className="pt-4">
-                  <Button variant="primary">
-                    <FiSave className="mr-2" />
-                    Save Changes
+                  {saveError && (
+                    <div className="mb-4 bg-terracotta/10 text-terracotta p-3 rounded-md">
+                      {saveError}
+                    </div>
+                  )}
+
+                  {saveSuccess && (
+                    <div className="mb-4 bg-green-50 text-green-700 p-3 rounded-md flex items-center">
+                      <FiCheckCircle className="mr-2" />
+                      Profile updated successfully!
+                    </div>
+                  )}
+
+                  <Button
+                    variant="primary"
+                    onClick={handleProfileSave}
+                    disabled={isSaving}
+                  >
+                    {isSaving ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-t-transparent border-white rounded-full animate-spin mr-2" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <FiSave className="mr-2" />
+                        Save Changes
+                      </>
+                    )}
                   </Button>
                 </div>
               </div>
@@ -238,25 +451,40 @@ export default function Profile() {
                 <div className="border-t border-slate-gray/10 pt-6 mt-6">
                   <h3 className="text-lg font-playfair font-semibold mb-4">Login Sessions</h3>
 
-                  <div className="bg-slate-gray/5 p-4 rounded-md mb-4">
+                  <LoginSessionsList />
+                </div>
+
+                <div className="border-t border-slate-gray/10 pt-6 mt-6">
+                  <h3 className="text-lg font-playfair font-semibold mb-4 text-terracotta">Danger Zone</h3>
+
+                  <div className="bg-terracotta/5 p-4 rounded-md mb-4">
                     <div className="flex justify-between items-center">
                       <div>
-                        <p className="font-medium">Current Session</p>
-                        <p className="text-text-muted text-sm mt-1">Windows • Chrome • Zimbabwe</p>
+                        <p className="font-medium">Delete Account</p>
+                        <p className="text-text-muted text-sm mt-1">
+                          Permanently delete your account and all associated data.
+                          This action cannot be undone.
+                        </p>
                       </div>
-                      <div className="text-forest-green font-medium">Active Now</div>
+                      <Button
+                        variant="danger"
+                        onClick={() => setShowDeleteModal(true)}
+                      >
+                        Delete Account
+                      </Button>
                     </div>
                   </div>
-
-                  <Button variant="secondary" className="text-terracotta border-terracotta">
-                    Sign Out All Devices
-                  </Button>
                 </div>
               </div>
             </Card>
           )}
         </div>
       </div>
+
+      {/* Delete Account Modal */}
+      {showDeleteModal && (
+        <DeleteAccountModal onClose={() => setShowDeleteModal(false)} />
+      )}
     </DashboardLayout>
   );
 }

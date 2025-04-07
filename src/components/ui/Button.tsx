@@ -4,7 +4,7 @@ import React from 'react';
 
 interface ButtonProps {
   children: React.ReactNode;
-  variant?: 'primary' | 'secondary' | 'tertiary';
+  variant?: 'primary' | 'secondary' | 'tertiary' | 'danger';
   size?: 'sm' | 'md' | 'lg';
   className?: string;
   onClick?: () => void;
@@ -27,7 +27,8 @@ const Button = ({
   const variantClasses = {
     primary: 'btn-primary',
     secondary: 'btn-secondary',
-    tertiary: 'text-bgf-burgundy hover:underline'
+    tertiary: 'text-bgf-burgundy hover:underline',
+    danger: 'bg-terracotta text-white hover:bg-deep-terracotta border border-terracotta'
   };
 
   const sizeClasses = {

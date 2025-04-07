@@ -3,7 +3,9 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { authService, UserProfile } from '@/services/auth.service';
+// import { authService, UserProfile } from '@/services/auth.service';
+import { simulatedAuthService as authService } from '@/services/simulated-auth.service';
+import { User as UserProfile } from '@/types/user';
 import staffAuthService, { StaffProfile } from '../services/staff-auth.service';
 
 // Using StaffProfile from staff-auth.service.ts
@@ -74,11 +76,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const { data: userData } = await supabase.auth.getUser();
             if (userData.user) {
               const userProfile: UserProfile = {
+                isStaff: false,
                 id: userData.user.id,
                 email: userData.user.email || '',
                 full_name: userData.user.user_metadata?.full_name || '',
                 role: userData.user.user_metadata?.role || 'user',
-                staff_number: userData.user.user_metadata?.staff_number,
+                staffNumber: userData.user.user_metadata?.staff_number,
                 phone_number: '',
                 address: '',
                 created_at: new Date().toISOString(),
@@ -149,11 +152,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const { data: userData } = await supabase.auth.getUser();
           if (userData.user) {
             const fallbackProfile: UserProfile = {
+              isStaff: false,
               id: userData.user.id,
               email: userData.user.email || '',
               full_name: userData.user.user_metadata?.full_name || '',
               role: userData.user.user_metadata?.role || 'user',
-              staff_number: userData.user.user_metadata?.staff_number,
+              staffNumber: userData.user.user_metadata?.staff_number,
               phone_number: '',
               address: '',
               created_at: new Date().toISOString(),
@@ -184,7 +188,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     try {
       console.log('Attempting login for:', email);
-      const { user } = await authService.login({ email, password, staff_number: staffNumber });
+      const { user } = await authService.login({ email, password, staffNumber });
       setUser(user);
       console.log('Login successful, user:', user);
 

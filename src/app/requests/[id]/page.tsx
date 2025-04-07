@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
+import dynamic from 'next/dynamic';
+import { FiUserPlus } from 'react-icons/fi';
 import { useParams, useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import Card from '@/components/ui/Card';
@@ -8,11 +10,23 @@ import Button from '@/components/ui/Button';
 import StatusBadge from '@/components/ui/StatusBadge';
 import ErrorMessage from '@/components/ui/ErrorMessage';
 import WorkflowStatus from '@/components/workflow/WorkflowStatus';
+import WorkflowHistory from '@/components/workflow/WorkflowHistory';
+import ConditionalWorkflowStages from '@/components/workflow/ConditionalWorkflowStages';
 import { FiArrowLeft, FiEdit, FiTrash2, FiFileText, FiUser, FiCalendar, FiClock, FiMessageSquare, FiPaperclip, FiCheckCircle, FiXCircle, FiRefreshCw } from 'react-icons/fi';
 import { useAuth } from '@/contexts/AuthContext';
-import { requestService, RequestData } from '@/services/request.service';
+import supabaseRequestService from '@/services/supabase/request.service';
+import { Request as RequestData } from '@/types/request';
 import { workflowService, WorkflowData, WorkflowComment } from '@/services/workflow.service';
 import { ROUTES } from '@/app/routes';
+
+// Dynamically import the modal components
+const AssignOfficerModal = dynamic(() => import('@/components/workflow/AssignOfficerModal'), {
+  ssr: false,
+});
+
+const DelegateRequestModal = dynamic(() => import('@/components/workflow/DelegateRequestModal'), {
+  ssr: false,
+});
 
 export default function RequestDetail() {
   const { id } = useParams();
@@ -25,6 +39,8 @@ export default function RequestDetail() {
   const [newComment, setNewComment] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('details');
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [showDelegateModal, setShowDelegateModal] = useState(false);
 
   useEffect(() => {
     const fetchRequestData = async () => {
@@ -33,8 +49,8 @@ export default function RequestDetail() {
         setError(null);
 
         try {
-          // Try to fetch the request data from the API
-          const requestData = await requestService.getRequestById(id as string);
+          // Try to fetch the request data directly from Supabase
+          const requestData = await supabaseRequestService.getRequestById(id as string);
           setRequest(requestData);
 
           // Try to fetch the workflow data
@@ -80,6 +96,16 @@ export default function RequestDetail() {
       setNewComment('');
     } catch (err: any) {
       console.error('Error adding comment:', err);
+    }
+  };
+
+  const handleAssignmentComplete = async () => {
+    try {
+      // Refresh the workflow data
+      const workflowData = await workflowService.getWorkflowByRequestId(id as string);
+      setWorkflow(workflowData);
+    } catch (error) {
+      console.error('Error refreshing workflow data:', error);
     }
   };
 
@@ -298,10 +324,46 @@ export default function RequestDetail() {
           <Card>
             <WorkflowStatus currentStatus={request.status} />
 
+            {/* Conditional Workflow Stages */}
+            <div className="mt-6 border-t border-slate-gray/10 pt-6">
+              <h3 className="text-lg font-medium mb-4">Workflow Stages</h3>
+              <ConditionalWorkflowStages
+                requestId={id as string}
+                requestType={request.request_type}
+                currentStage={request.status}
+                onStageChange={(newStage) => {
+                  // Update the request status
+                  setRequest({ ...request, status: newStage });
+                }}
+                readOnly={user?.role !== 'head_of_programs' && user?.role !== 'assistant_project_officer' && user?.role !== 'director'}
+              />
+            </div>
+
             {workflow && (
               <div className="border-t border-slate-gray/10 pt-6 mt-6">
                 <div className="mb-4">
-                  <h3 className="font-medium mb-3">Assigned To</h3>
+                  <div className="flex justify-between items-center mb-3">
+                    <h3 className="font-medium">Assigned To</h3>
+                    <div className="flex space-x-3">
+                      {workflow.assigned_to_name && user?.role === 'head_of_programs' && (
+                        <button
+                          onClick={() => setShowDelegateModal(true)}
+                          className="text-sm text-bgf-burgundy hover:text-deep-burgundy flex items-center"
+                        >
+                          <FiUserPlus className="mr-1" size={14} />
+                          Delegate
+                        </button>
+                      )}
+                      {user?.role === 'head_of_programs' && (
+                        <button
+                          onClick={() => setShowAssignModal(true)}
+                          className="text-sm text-bgf-burgundy hover:text-deep-burgundy underline"
+                        >
+                          {workflow.assigned_to_name ? 'Reassign' : 'Assign'}
+                        </button>
+                      )}
+                    </div>
+                  </div>
                   <p className="text-text-secondary">{workflow.assigned_to_name || 'Unassigned'}</p>
                 </div>
 
@@ -335,35 +397,32 @@ export default function RequestDetail() {
           <Card className="mt-6">
             <h2 className="text-xl font-playfair font-semibold mb-6">Timeline</h2>
 
-            <div className="space-y-6">
-              <div className="relative pl-6 pb-6 border-l-2 border-slate-gray/20">
-                <div className="absolute top-0 left-[-8px] w-4 h-4 rounded-full bg-bgf-burgundy"></div>
-                <div className="text-sm text-text-muted mb-1">{new Date(request.created_at).toLocaleString()}</div>
-                <div className="font-medium">Request Submitted</div>
-                <p className="text-text-secondary text-sm mt-1">Request was submitted by {request.requester_name}</p>
-              </div>
+            {/* Use the WorkflowHistory component for a detailed history */}
+            <WorkflowHistory requestId={id as string} />
 
-              {workflow && (
-                <div className="relative pl-6 pb-6 border-l-2 border-slate-gray/20">
-                  <div className="absolute top-0 left-[-8px] w-4 h-4 rounded-full bg-gold"></div>
-                  <div className="text-sm text-text-muted mb-1">{new Date(workflow.created_at).toLocaleString()}</div>
-                  <div className="font-medium">Initial Review</div>
-                  <p className="text-text-secondary text-sm mt-1">Request was reviewed by Head of Programs</p>
-                </div>
-              )}
-
-              {comments.length > 0 && (
-                <div className="relative pl-6">
-                  <div className="absolute top-0 left-[-8px] w-4 h-4 rounded-full bg-navy-blue"></div>
-                  <div className="text-sm text-text-muted mb-1">{new Date(comments[comments.length - 1].created_at).toLocaleString()}</div>
-                  <div className="font-medium">Latest Update</div>
-                  <p className="text-text-secondary text-sm mt-1">{comments[comments.length - 1].user_name} added a comment</p>
-                </div>
-              )}
-            </div>
+            {/* We don't need the comments section here anymore since it's included in the WorkflowHistory */}
           </Card>
         </div>
       </div>
+
+      {/* Assignment Modal */}
+      {showAssignModal && (
+        <AssignOfficerModal
+          requestId={id as string}
+          onClose={() => setShowAssignModal(false)}
+          onAssigned={handleAssignmentComplete}
+        />
+      )}
+
+      {/* Delegation Modal */}
+      {showDelegateModal && workflow && (
+        <DelegateRequestModal
+          requestId={id as string}
+          currentAssigneeId={workflow.assigned_to}
+          onClose={() => setShowDelegateModal(false)}
+          onDelegated={handleAssignmentComplete}
+        />
+      )}
     </DashboardLayout>
   );
 }

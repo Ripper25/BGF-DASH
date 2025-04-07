@@ -1,4 +1,5 @@
 import { apiService } from './api';
+import { emailService } from './email.service';
 
 export interface NotificationData {
   id: string;
@@ -6,6 +7,7 @@ export interface NotificationData {
   title: string;
   message: string;
   type: 'info' | 'success' | 'warning' | 'error';
+  category?: string;
   related_entity_type?: string;
   related_entity_id?: string;
   is_read: boolean;
@@ -15,8 +17,15 @@ export interface NotificationData {
 
 export interface NotificationFilters {
   is_read?: boolean;
+  category?: string;
   limit?: number;
   offset?: number;
+}
+
+export interface NotificationOptions {
+  sendEmail?: boolean;
+  emailRecipient?: string;
+  category?: string;
 }
 
 /**
@@ -134,5 +143,85 @@ export const notificationService = {
     // In a real implementation, this would use Supabase's real-time features
     // For now, we'll just return a no-op unsubscribe function
     return () => {};
+  },
+
+  /**
+   * Create a notification
+   * @param data - Notification data
+   * @param options - Notification options
+   * @returns Created notification
+   */
+  async createNotification(
+    data: {
+      title: string;
+      message: string;
+      type: 'info' | 'success' | 'warning' | 'error';
+      category?: string;
+      related_entity_type?: string;
+      related_entity_id?: string;
+      user_id?: string;
+    },
+    options: NotificationOptions = {}
+  ): Promise<NotificationData | null> {
+    try {
+      // Create the notification
+      const notification = await apiService.post<NotificationData>('/notifications', data);
+
+      // Send email if requested
+      if (options.sendEmail && options.emailRecipient) {
+        try {
+          await emailService.sendEmail({
+            to: options.emailRecipient,
+            subject: data.title,
+            body: `<h1>${data.title}</h1><p>${data.message}</p>`
+          });
+        } catch (emailError) {
+          console.error('Error sending notification email:', emailError);
+          // Continue even if email fails
+        }
+      }
+
+      return notification;
+    } catch (error) {
+      console.error('Error creating notification:', error);
+      return null;
+    }
+  },
+
+  /**
+   * Create a test notification (for development purposes)
+   * @param type - Notification type
+   * @param sendEmail - Whether to send an email
+   * @param emailRecipient - Email recipient
+   * @returns Created notification
+   */
+  async createTestNotification(
+    type: 'info' | 'success' | 'warning' | 'error' = 'info',
+    sendEmail: boolean = false,
+    emailRecipient?: string,
+    category?: string
+  ): Promise<NotificationData | null> {
+    try {
+      const notificationData = {
+        title: `Test ${type} notification`,
+        message: `This is a test ${type} notification created at ${new Date().toLocaleTimeString()}`,
+        type,
+        category: category || 'system_announcement'
+      };
+
+      const options: NotificationOptions = {
+        category: category || 'system_announcement'
+      };
+
+      if (sendEmail && emailRecipient) {
+        options.sendEmail = true;
+        options.emailRecipient = emailRecipient;
+      }
+
+      return await this.createNotification(notificationData, options);
+    } catch (error) {
+      console.error('Error creating test notification:', error);
+      return null;
+    }
   }
 };

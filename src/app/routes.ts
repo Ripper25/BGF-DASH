@@ -16,6 +16,8 @@ export const ROUTES = {
   REQUESTS: '/requests',
   REQUEST_DETAILS: (id: string) => `/requests/${id}`,
   NEW_REQUEST: '/requests/new',
+  BULK_REQUEST: '/requests/bulk',
+  BATCH_PROCESS: '/requests/batch',
 
   // Protected routes - Users
   USERS: '/users',
@@ -31,10 +33,20 @@ export const ROUTES = {
 
   // Protected routes - Notifications
   NOTIFICATIONS: '/notifications',
+  NOTIFICATION_PREFERENCES: '/notifications/preferences',
+  SCHEDULED_NOTIFICATIONS: '/notifications/scheduled',
 
   // Protected routes - Settings
   SETTINGS: '/settings',
   PROFILE: '/profile',
+
+  // Protected routes - Admin
+  ADMIN_DASHBOARD: '/admin',
+  ADMIN_USERS: '/admin/users',
+  ADMIN_USER_DETAILS: (id: string) => `/admin/users/${id}`,
+  ADMIN_USER_NEW: '/admin/users/new',
+  ADMIN_ACTIVITY_LOGS: '/admin/activity-logs',
+  ADMIN_SETTINGS: '/admin/settings',
 };
 
 // Define route access by role
@@ -58,6 +70,19 @@ export const ROUTE_ACCESS = {
     USER_ROLES.CEO,
     USER_ROLES.PATRON,
     USER_ROLES.USER
+  ],
+  [ROUTES.NEW_REQUEST]: [
+    USER_ROLES.USER
+  ],
+  [ROUTES.BULK_REQUEST]: [
+    USER_ROLES.USER
+  ],
+  [ROUTES.BATCH_PROCESS]: [
+    USER_ROLES.ADMIN,
+    USER_ROLES.ASSISTANT_PROJECT_OFFICER,
+    USER_ROLES.PROJECT_MANAGER,
+    USER_ROLES.HEAD_OF_PROGRAMS,
+    USER_ROLES.DIRECTOR
   ],
   [ROUTES.USERS]: [
     USER_ROLES.ADMIN,
@@ -91,6 +116,58 @@ export const ROUTE_ACCESS = {
     USER_ROLES.CEO,
     USER_ROLES.PATRON,
     USER_ROLES.USER
+  ],
+  [ROUTES.NOTIFICATIONS]: [
+    USER_ROLES.ADMIN,
+    USER_ROLES.ASSISTANT_PROJECT_OFFICER,
+    USER_ROLES.PROJECT_MANAGER,
+    USER_ROLES.HEAD_OF_PROGRAMS,
+    USER_ROLES.DIRECTOR,
+    USER_ROLES.CEO,
+    USER_ROLES.PATRON,
+    USER_ROLES.USER
+  ],
+  [ROUTES.NOTIFICATION_PREFERENCES]: [
+    USER_ROLES.ADMIN,
+    USER_ROLES.ASSISTANT_PROJECT_OFFICER,
+    USER_ROLES.PROJECT_MANAGER,
+    USER_ROLES.HEAD_OF_PROGRAMS,
+    USER_ROLES.DIRECTOR,
+    USER_ROLES.CEO,
+    USER_ROLES.PATRON,
+    USER_ROLES.USER
+  ],
+  [ROUTES.SCHEDULED_NOTIFICATIONS]: [
+    USER_ROLES.ADMIN,
+    USER_ROLES.ASSISTANT_PROJECT_OFFICER,
+    USER_ROLES.PROJECT_MANAGER,
+    USER_ROLES.HEAD_OF_PROGRAMS,
+    USER_ROLES.DIRECTOR,
+    USER_ROLES.CEO,
+    USER_ROLES.PATRON,
+    USER_ROLES.USER
+  ],
+  [ROUTES.ADMIN_DASHBOARD]: [
+    USER_ROLES.ADMIN,
+    USER_ROLES.HEAD_OF_PROGRAMS
+  ],
+  [ROUTES.ADMIN_USERS]: [
+    USER_ROLES.ADMIN,
+    USER_ROLES.HEAD_OF_PROGRAMS
+  ],
+  [ROUTES.ADMIN_USER_NEW]: [
+    USER_ROLES.ADMIN,
+    USER_ROLES.HEAD_OF_PROGRAMS
+  ],
+  [ROUTES.ADMIN_ACTIVITY_LOGS]: [
+    USER_ROLES.ADMIN,
+    USER_ROLES.HEAD_OF_PROGRAMS,
+    USER_ROLES.DIRECTOR,
+    USER_ROLES.CEO
+  ],
+  [ROUTES.ADMIN_SETTINGS]: [
+    USER_ROLES.ADMIN,
+    USER_ROLES.HEAD_OF_PROGRAMS
   ],
 };
 

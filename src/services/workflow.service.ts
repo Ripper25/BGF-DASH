@@ -1,4 +1,5 @@
 import { apiService } from './api';
+import { getWorkflowConfig, getNextStages, isValidStage } from '@/constants/workflow-conditions';
 
 export interface WorkflowData {
   id: string;
@@ -117,5 +118,69 @@ export const workflowService = {
    */
   async getComments(requestId: string): Promise<WorkflowComment[]> {
     return apiService.get<WorkflowComment[]>(`/workflow/${requestId}/comments`);
+  },
+
+  /**
+   * Get workflow history for a request
+   * @param requestId - Request ID
+   */
+  async getWorkflowHistory(requestId: string): Promise<any[]> {
+    return apiService.get<any[]>(`/workflow/${requestId}/history`);
+  },
+
+  /**
+   * Approve a request
+   * @param requestId - Request ID
+   * @param notes - Optional notes for the approval
+   */
+  async approveRequest(requestId: string, notes?: string): Promise<any> {
+    return apiService.post<any>(`/workflow/${requestId}/approve`, { notes });
+  },
+
+  /**
+   * Reject a request
+   * @param requestId - Request ID
+   * @param notes - Optional notes for the rejection
+   */
+  async rejectRequest(requestId: string, notes?: string): Promise<any> {
+    return apiService.post<any>(`/workflow/${requestId}/reject`, { notes });
+  },
+
+  /**
+   * Get the next possible stages for a request
+   * @param requestId - Request ID
+   * @param requestType - Request type
+   * @param currentStage - Current stage
+   */
+  getNextPossibleStages(requestType: string, currentStage: string): string[] {
+    return getNextStages(requestType, currentStage);
+  },
+
+  /**
+   * Update the stage of a request
+   * @param requestId - Request ID
+   * @param newStage - New stage
+   * @param notes - Optional notes for the stage change
+   */
+  async updateStage(requestId: string, newStage: string, notes?: string): Promise<any> {
+    return apiService.post<any>(`/workflow/${requestId}/stage`, { stage: newStage, notes });
+  },
+
+  /**
+   * Get the workflow configuration for a request type
+   * @param requestType - Request type
+   */
+  getWorkflowConfig(requestType: string): any {
+    return getWorkflowConfig(requestType);
+  },
+
+  /**
+   * Delegate a request to another staff member
+   * @param requestId - Request ID
+   * @param staffId - Staff ID to delegate to
+   * @param reason - Optional reason for delegation
+   */
+  async delegateRequest(requestId: string, staffId: string, reason?: string): Promise<any> {
+    return apiService.post<any>(`/workflow/${requestId}/delegate`, { staff_id: staffId, reason });
   },
 };

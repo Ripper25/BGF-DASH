@@ -37,7 +37,7 @@ export default function LoginGuide() {
     },
     {
       email: 'officer@example.com',
-      password: 'password123',
+      password: '', // Staff accounts don't use passwords, only access codes
       fullName: 'Field Officer',
       role: 'assistant_project_officer',
       staffNumber: 'APO001', // References staff access code in database
@@ -45,7 +45,7 @@ export default function LoginGuide() {
     },
     {
       email: 'manager@example.com',
-      password: 'password123',
+      password: '', // Staff accounts don't use passwords, only access codes
       fullName: 'Program Manager',
       role: 'head_of_programs',
       staffNumber: 'HOP001', // References staff access code in database
@@ -53,7 +53,7 @@ export default function LoginGuide() {
     },
     {
       email: 'executive@example.com',
-      password: 'password123',
+      password: '', // Staff accounts don't use passwords, only access codes
       fullName: 'Executive Director',
       role: 'director',
       staffNumber: 'DIR001', // References staff access code in database
@@ -61,11 +61,35 @@ export default function LoginGuide() {
     },
     {
       email: 'admin@example.com',
-      password: 'password123',
+      password: '', // Staff accounts don't use passwords, only access codes
       fullName: 'System Admin',
       role: 'admin',
       staffNumber: 'ADM001', // References staff access code in database
       description: 'Administrator with full system access'
+    },
+    {
+      email: 'staff@example.com',
+      password: '', // Staff accounts don't use passwords, only access codes
+      fullName: 'BGF Staff',
+      role: 'project_manager',
+      staffNumber: 'BGF-STAFF-2023', // BGF staff access code
+      description: 'Staff member with project management access'
+    },
+    {
+      email: 'admin@example.com',
+      password: '', // Staff accounts don't use passwords, only access codes
+      fullName: 'BGF Admin',
+      role: 'admin',
+      staffNumber: 'BGF-ADMIN-2023', // BGF admin access code
+      description: 'Administrator with full system access'
+    },
+    {
+      email: 'ceo@example.com',
+      password: '', // Staff accounts don't use passwords, only access codes
+      fullName: 'BGF CEO',
+      role: 'ceo',
+      staffNumber: 'BGF-CEO-2023', // BGF CEO access code
+      description: 'Chief Executive Officer with executive dashboard access'
     }
   ];
 
@@ -82,9 +106,9 @@ export default function LoginGuide() {
     <div className="min-h-screen bg-cream p-6">
       <div className="max-w-4xl mx-auto">
         <div className="mb-6">
-          <Link href="/login" className="inline-flex items-center text-bgf-burgundy hover:underline">
+          <Link href="/" className="inline-flex items-center text-bgf-burgundy hover:underline">
             <FiArrowLeft className="mr-2" />
-            Back to Login
+            Back to Home
           </Link>
         </div>
 
@@ -149,20 +173,22 @@ export default function LoginGuide() {
                           <span className="font-medium">{user.email}</span>
                         </div>
 
-                        <div
-                          className="flex items-center bg-slate-gray/5 p-3 rounded-md cursor-pointer hover:bg-slate-gray/10"
-                          onClick={() => copyToClipboard(user.password)}
-                        >
-                          <span className="text-text-muted mr-2">Password:</span>
-                          <span className="font-medium">{user.password}</span>
-                        </div>
+                        {!user.staffNumber && (
+                          <div
+                            className="flex items-center bg-slate-gray/5 p-3 rounded-md cursor-pointer hover:bg-slate-gray/10"
+                            onClick={() => copyToClipboard(user.password)}
+                          >
+                            <span className="text-text-muted mr-2">Password:</span>
+                            <span className="font-medium">{user.password}</span>
+                          </div>
+                        )}
 
                         {user.staffNumber && (
                           <div
                             className="flex items-center bg-slate-gray/5 p-3 rounded-md cursor-pointer hover:bg-slate-gray/10"
                             onClick={() => copyToClipboard(user.staffNumber)}
                           >
-                            <span className="text-text-muted mr-2">Staff Number:</span>
+                            <span className="text-text-muted mr-2">Staff Code:</span>
                             <span className="font-medium">{user.staffNumber}</span>
                           </div>
                         )}
@@ -188,9 +214,10 @@ export default function LoginGuide() {
                 <li>Choose a staff access code from the list above based on the role you want to explore</li>
                 <li>Click on the code to copy it to your clipboard</li>
                 <li>Go to the <Link href="/staff-login" className="text-bgf-burgundy hover:underline">staff login page</Link></li>
-                <li>Enter your name and paste the access code</li>
+                <li>Enter your email and paste the access code</li>
                 <li>Click "Sign In" to access the dashboard with the selected role</li>
                 <li>Your authentication is handled securely by the backend with a JWT token</li>
+                <li><strong>Note:</strong> Staff accounts do not require passwords, only the access code</li>
               </ol>
             </div>
 

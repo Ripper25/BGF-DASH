@@ -4,6 +4,7 @@ import React from 'react';
 import { FiUser, FiSearch } from 'react-icons/fi';
 import { useAuth } from '@/contexts/AuthContext';
 import NotificationDropdown from '@/components/notifications/NotificationDropdown';
+import Avatar from '@/components/ui/Avatar';
 
 interface HeaderProps {
   title: string;
@@ -33,9 +34,12 @@ const Header = ({ title }: HeaderProps) => {
         <NotificationDropdown />
 
         <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 rounded-full bg-bgf-burgundy flex items-center justify-center text-cream">
-            <FiUser size={20} />
-          </div>
+          <Avatar
+            url={user?.avatar_url}
+            size="sm"
+            alt={userName}
+            className="w-10 h-10"
+          />
           <span className="font-lato font-medium">{userName}</span>
         </div>
       </div>

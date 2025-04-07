@@ -2,6 +2,8 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const { supabase } = require('../config/supabase');
 const { UserModel } = require('../models/user.model');
+const { successResponse, errorResponse } = require('../utils/response.util');
+const { DEV_MODE, STAFF_CODES } = require('../config/development');
 
 /**
  * Authentication controller for handling user authentication
@@ -19,48 +21,67 @@ const AuthController = {
 
       // Validate required fields
       if (!email || !password || !full_name) {
-        return res.status(400).json({ message: 'Email, password, and full name are required' });
+        return errorResponse(res, 'Email, password, and full name are required', 400);
       }
 
       // Check if user already exists
       const existingUser = await UserModel.getUserByEmail(email);
       if (existingUser) {
-        return res.status(400).json({ message: 'User with this email already exists' });
+        return errorResponse(res, 'User with this email already exists', 400);
       }
 
-      // Create user
-      const userData = {
+      // Create user with Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
-        full_name,
-        role,
-        phone_number,
-        address
-      };
+        options: {
+          data: {
+            full_name,
+            role: role || 'user'
+          }
+        }
+      });
 
-      const user = await UserModel.createUser(userData);
+      if (authError) {
+        console.error('Supabase auth error:', authError);
+        return errorResponse(res, 'Registration failed', 500, authError.message);
+      }
 
-      // Generate JWT token
-      const token = jwt.sign(
-        { id: user.id, email: user.email, role: user.role },
-        process.env.JWT_SECRET,
-        { expiresIn: process.env.JWT_EXPIRES_IN }
-      );
+      // Create user profile in profiles table
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .insert({
+          id: authData.user.id,
+          email,
+          full_name,
+          role: role || 'user',
+          phone_number,
+          address,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+
+      if (profileError) {
+        console.error('Profile creation error:', profileError);
+        return errorResponse(res, 'Profile creation failed', 500, profileError.message);
+      }
 
       // Return user data and token
-      return res.status(201).json({
-        message: 'User registered successfully',
+      return successResponse(res, {
         user: {
-          id: user.id,
-          email: user.email,
-          full_name: user.full_name,
-          role: user.role
+          id: profile.id,
+          email: profile.email,
+          full_name: profile.full_name,
+          role: profile.role,
+          isStaff: false
         },
-        token
-      });
+        token: authData.session?.access_token
+      }, 'User registered successfully', 201);
     } catch (error) {
       console.error('Registration error:', error);
-      return res.status(500).json({ message: 'Registration failed', error: error.message });
+      return errorResponse(res, 'Registration failed', 500, error.message);
     }
   },
 
@@ -72,50 +93,173 @@ const AuthController = {
    */
   async login(req, res) {
     try {
-      const { email, password } = req.body;
+      const { email, password, staffNumber } = req.body;
 
-      // Validate required fields
-      if (!email || !password) {
-        return res.status(400).json({ message: 'Email and password are required' });
+      // Determine if this is a staff login attempt
+      const isStaffLogin = !!staffNumber;
+
+      if (isStaffLogin) {
+        // Staff authentication logic
+        console.log('Staff login attempt:', email, staffNumber);
+
+        // Validate required fields
+        if (!email || !staffNumber) {
+          return errorResponse(res, 'Email and staff number are required', 400);
+        }
+
+        // In development mode, we can use predefined staff codes
+        if (DEV_MODE && STAFF_CODES[staffNumber]) {
+          console.log('DEV MODE: Using predefined staff code:', staffNumber);
+
+          // Generate a staff ID based on the staff number
+          const staffId = `staff_${staffNumber}`;
+          const staffName = email.split('@')[0] || 'Staff User';
+          const staffRole = STAFF_CODES[staffNumber].role;
+
+          // Generate JWT token for staff
+          const token = jwt.sign(
+            {
+              id: staffId,
+              email,
+              name: staffName,
+              role: staffRole,
+              staff_number: staffNumber,
+              isStaff: true
+            },
+            process.env.JWT_SECRET,
+            { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+          );
+
+          // Return staff data and token
+          return successResponse(res, {
+            user: {
+              id: staffId,
+              email,
+              full_name: staffName,
+              role: staffRole,
+              staffNumber,
+              isStaff: true
+            },
+            token
+          }, 'Staff login successful');
+        }
+
+        // For production, we would check against the staff_profiles table
+        // Get staff from database
+        const { data: staff, error: staffError } = await supabase
+          .from('staff_profiles')
+          .select('*')
+          .eq('email', email)
+          .eq('staff_number', staffNumber)
+          .single();
+
+        if (staffError || !staff) {
+          console.error('Staff not found:', staffError);
+          return errorResponse(res, 'Invalid staff credentials', 401);
+        }
+
+        // Generate JWT token for staff
+        const token = jwt.sign(
+          {
+            id: staff.id,
+            email: staff.email,
+            name: staff.name,
+            role: staff.role,
+            staff_number: staff.staff_number,
+            isStaff: true
+          },
+          process.env.JWT_SECRET,
+          { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+        );
+
+        // Return staff data and token
+        return successResponse(res, {
+          user: {
+            id: staff.id,
+            email: staff.email,
+            full_name: staff.name,
+            role: staff.role,
+            staffNumber: staff.staff_number,
+            isStaff: true,
+            avatar_url: staff.avatar_url
+          },
+          token
+        }, 'Staff login successful');
+      } else {
+        // Regular user authentication logic
+        console.log('Regular user login attempt:', email);
+
+        // Validate required fields
+        if (!email || !password) {
+          return errorResponse(res, 'Email and password are required', 400);
+        }
+
+        // Sign in with Supabase Auth
+        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+          email,
+          password
+        });
+
+        if (authError) {
+          return errorResponse(res, 'Invalid credentials', 401);
+        }
+
+        // Get user profile from profiles table
+        console.log('Login: Looking for profile with ID:', authData.user.id);
+        let { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', authData.user.id)
+          .single();
+
+        if (profileError) {
+          console.log('Login: Profile error details:', profileError);
+        } else {
+          console.log('Login: Profile found:', profile ? 'Yes' : 'No');
+        }
+
+        if (profileError || !profile) {
+          console.log('User profile not found, creating one...');
+
+          // Create a profile for the user
+          const { data: newProfile, error: createError } = await supabase
+            .from('profiles')
+            .insert({
+              id: authData.user.id,
+              email: authData.user.email,
+              full_name: authData.user.user_metadata?.full_name || 'User',
+              role: authData.user.user_metadata?.role || 'user',
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            })
+            .select()
+            .single();
+
+          if (createError) {
+            console.error('Failed to create profile:', createError);
+            return errorResponse(res, 'Failed to create user profile', 500);
+          }
+
+          console.log('Created new profile:', newProfile);
+          profile = newProfile;
+        }
+
+        // Return user data and Supabase token
+        return successResponse(res, {
+          user: {
+            id: profile.id,
+            email: profile.email || authData.user.email, // Use Supabase email if profile email is not available
+            full_name: profile.full_name,
+            role: profile.role,
+            isStaff: false,
+            avatar_url: profile.avatar_url
+          },
+          token: authData.session.access_token
+        }, 'Login successful');
       }
-
-      // Sign in with Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      });
-
-      if (authError) {
-        return res.status(401).json({ message: 'Invalid credentials' });
-      }
-
-      // Get user from database
-      const user = await UserModel.getUserByEmail(email);
-      if (!user) {
-        return res.status(404).json({ message: 'User not found' });
-      }
-
-      // Generate JWT token
-      const token = jwt.sign(
-        { id: user.id, email: user.email, role: user.role },
-        process.env.JWT_SECRET,
-        { expiresIn: process.env.JWT_EXPIRES_IN }
-      );
-
-      // Return user data and token
-      return res.status(200).json({
-        message: 'Login successful',
-        user: {
-          id: user.id,
-          email: user.email,
-          full_name: user.full_name,
-          role: user.role
-        },
-        token
-      });
     } catch (error) {
       console.error('Login error:', error);
-      return res.status(500).json({ message: 'Login failed', error: error.message });
+      return errorResponse(res, 'Login failed', 500, error.message);
     }
   },
 
@@ -128,28 +272,44 @@ const AuthController = {
   async getProfile(req, res) {
     try {
       const userId = req.user.id;
+      const isStaff = req.user.isStaff;
 
-      // Get user from database
-      const user = await UserModel.getUserById(userId);
-      if (!user) {
-        return res.status(404).json({ message: 'User not found' });
+      if (isStaff) {
+        // For staff users, we already have the profile in req.user
+        return successResponse(res, {
+          user: req.user
+        }, 'Staff profile retrieved successfully');
+      }
+
+      // For regular users, get profile from Supabase
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      if (profileError || !profile) {
+        console.error('Profile not found:', profileError);
+        return errorResponse(res, 'User profile not found', 404);
       }
 
       // Return user data
-      return res.status(200).json({
+      return successResponse(res, {
         user: {
-          id: user.id,
-          email: user.email,
-          full_name: user.full_name,
-          role: user.role,
-          phone_number: user.phone_number,
-          address: user.address,
-          created_at: user.created_at
+          id: profile.id,
+          email: profile.email,
+          full_name: profile.full_name,
+          role: profile.role,
+          phone_number: profile.phone_number,
+          address: profile.address,
+          avatar_url: profile.avatar_url,
+          isStaff: false,
+          created_at: profile.created_at
         }
-      });
+      }, 'Profile retrieved successfully');
     } catch (error) {
       console.error('Get profile error:', error);
-      return res.status(500).json({ message: 'Failed to get profile', error: error.message });
+      return errorResponse(res, 'Failed to get profile', 500, error.message);
     }
   },
 
@@ -162,30 +322,79 @@ const AuthController = {
   async updateProfile(req, res) {
     try {
       const userId = req.user.id;
-      const { full_name, phone_number, address } = req.body;
+      const isStaff = req.user.isStaff;
+      const { full_name, phone_number, address, avatar_url } = req.body;
 
-      // Update user
-      const updatedUser = await UserModel.updateUser(userId, {
-        full_name,
-        phone_number,
-        address
-      });
+      if (isStaff) {
+        // For staff users, update the staff_profiles table
+        const { data: staff, error: staffError } = await supabase
+          .from('staff_profiles')
+          .update({
+            name: full_name,
+            avatar_url,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', userId)
+          .select()
+          .single();
+
+        if (staffError) {
+          console.error('Staff profile update error:', staffError);
+          return errorResponse(res, 'Failed to update staff profile', 500, staffError.message);
+        }
+
+        // Return updated staff data
+        return successResponse(res, {
+          user: {
+            id: staff.id,
+            email: staff.email,
+            full_name: staff.name,
+            role: staff.role,
+            staffNumber: staff.staff_number,
+            avatar_url: staff.avatar_url,
+            isStaff: true,
+            updated_at: staff.updated_at
+          }
+        }, 'Staff profile updated successfully');
+      }
+
+      // For regular users, update the profiles table
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .update({
+          full_name,
+          phone_number,
+          address,
+          avatar_url,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', userId)
+        .select()
+        .single();
+
+      if (profileError) {
+        console.error('Profile update error:', profileError);
+        return errorResponse(res, 'Failed to update profile', 500, profileError.message);
+      }
 
       // Return updated user data
-      return res.status(200).json({
-        message: 'Profile updated successfully',
+      return successResponse(res, {
         user: {
-          id: updatedUser.id,
-          email: updatedUser.email,
-          full_name: updatedUser.full_name,
-          role: updatedUser.role,
-          phone_number: updatedUser.phone_number,
-          address: updatedUser.address
+          id: profile.id,
+          email: profile.email,
+          full_name: profile.full_name,
+          role: profile.role,
+          phone_number: profile.phone_number,
+          address: profile.address,
+          avatar_url: profile.avatar_url,
+          isStaff: false,
+          created_at: profile.created_at,
+          updated_at: profile.updated_at
         }
-      });
+      }, 'Profile updated successfully');
     } catch (error) {
       console.error('Update profile error:', error);
-      return res.status(500).json({ message: 'Failed to update profile', error: error.message });
+      return errorResponse(res, 'Failed to update profile', 500, error.message);
     }
   },
 
@@ -199,25 +408,33 @@ const AuthController = {
     try {
       const { current_password, new_password } = req.body;
       const email = req.user.email;
+      const isStaff = req.user.isStaff;
 
       // Validate required fields
       if (!current_password || !new_password) {
-        return res.status(400).json({ message: 'Current password and new password are required' });
+        return errorResponse(res, 'Current password and new password are required', 400);
       }
 
-      // Update password with Supabase Auth
+      if (isStaff) {
+        // For staff users, we would need to implement a custom password change flow
+        // This would involve verifying the current password and updating the hashed password
+        // For now, we'll return an error
+        return errorResponse(res, 'Password change for staff users is not implemented yet', 501);
+      }
+
+      // For regular users, update password with Supabase Auth
       const { error } = await supabase.auth.updateUser({
         password: new_password
       });
 
       if (error) {
-        return res.status(400).json({ message: 'Failed to change password', error: error.message });
+        return errorResponse(res, 'Failed to change password', 400, error.message);
       }
 
-      return res.status(200).json({ message: 'Password changed successfully' });
+      return successResponse(res, null, 'Password changed successfully');
     } catch (error) {
       console.error('Change password error:', error);
-      return res.status(500).json({ message: 'Failed to change password', error: error.message });
+      return errorResponse(res, 'Failed to change password', 500, error.message);
     }
   }
 };

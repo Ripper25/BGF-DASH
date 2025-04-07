@@ -36,10 +36,17 @@ const RouteGuard: React.FC<RouteGuardProps> = ({ children }) => {
       }
 
       // Check for staff authentication first
-      if (isStaffAuthenticated()) {
+      if (isStaffAuthenticated() && staffUser) {
         console.log('RouteGuard: Staff user authenticated', staffUser);
-        // Staff users have access to all protected routes
-        setAuthorized(true);
+        // Check if staff user has access to this route based on their role
+        if (hasRouteAccess(pathname, staffUser.role)) {
+          console.log('RouteGuard: Staff user has access to route', { role: staffUser.role, pathname });
+          setAuthorized(true);
+        } else {
+          console.log('RouteGuard: Staff user does not have access to route', { role: staffUser.role, pathname });
+          setAuthorized(false);
+          router.push(ROUTES.DASHBOARD);
+        }
         return;
       }
 

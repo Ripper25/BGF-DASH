@@ -16,24 +16,24 @@ export default function ForgotPassword() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    
+
     if (!email) {
       setError('Please enter your email address');
       return;
     }
-    
+
     try {
       setLoading(true);
-      
+
       // Send password reset email
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}${ROUTES.RESET_PASSWORD}`,
       });
-      
+
       if (resetError) {
         throw new Error(resetError.message);
       }
-      
+
       setSuccess(true);
     } catch (err: any) {
       setError(err.message || 'Failed to send reset email');
@@ -47,11 +47,11 @@ export default function ForgotPassword() {
     <div className="min-h-screen bg-cream flex flex-col justify-center items-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <Image 
-            src="/assets/logo.svg" 
-            alt="Bridging Gaps Foundation" 
-            width={250} 
-            height={100} 
+          <Image
+            src="/logo.png"
+            alt="Bridging Gaps Foundation"
+            width={250}
+            height={100}
             className="mx-auto mb-6"
           />
           <h1 className="text-3xl font-playfair font-bold text-bgf-burgundy">Forgot Password</h1>
@@ -65,7 +65,7 @@ export default function ForgotPassword() {
               <p className="text-terracotta text-sm">{error}</p>
             </div>
           )}
-          
+
           {success ? (
             <div className="text-center">
               <div className="w-16 h-16 bg-forest-green/10 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -73,7 +73,7 @@ export default function ForgotPassword() {
               </div>
               <h2 className="text-xl font-playfair font-semibold mb-2">Check Your Email</h2>
               <p className="text-text-secondary mb-6">
-                We've sent a password reset link to <span className="font-medium">{email}</span>. 
+                We've sent a password reset link to <span className="font-medium">{email}</span>.
                 Please check your email and follow the instructions to reset your password.
               </p>
               <Link href={ROUTES.LOGIN} className="text-bgf-burgundy hover:underline flex items-center justify-center">
@@ -110,7 +110,7 @@ export default function ForgotPassword() {
               >
                 {loading ? 'Sending...' : 'Reset Password'}
               </button>
-              
+
               <div className="text-center">
                 <Link href={ROUTES.LOGIN} className="text-bgf-burgundy hover:underline">
                   Back to Login

@@ -1,9 +1,10 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { notificationService, NotificationData } from '@/services/notification.service';
+// import { notificationService, NotificationData } from '@/services/notification.service';
+import { simulatedNotificationService } from '@/services/simulated-notification.service';
+import { NotificationData } from '@/types/notification';
 import { useAuth } from './AuthContext';
-import { supabase } from '@/lib/supabase';
 
 interface NotificationContextType {
   notifications: NotificationData[];
@@ -39,18 +40,20 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
         // Try to fetch in the background, but don't wait for it
         // This prevents the UI from getting stuck if the backend is down
-        notificationService.getAllNotifications()
-          .then(notificationsData => {
-            setNotifications(notificationsData);
-            return notificationService.getUnreadCount();
-          })
-          .then(({ count }) => {
-            setUnreadCount(count);
-          })
-          .catch(apiError => {
-            console.error('API error fetching notifications:', apiError);
-            // Already set empty notifications above, so no need to do it again
-          });
+        const userId = user?.id || staffUser?.id;
+        if (userId) {
+          simulatedNotificationService.getNotifications(userId)
+            .then((notificationsData: NotificationData[]) => {
+              setNotifications(notificationsData);
+              // Calculate unread count
+              const unreadCount = notificationsData.filter(n => !n.is_read).length;
+              setUnreadCount(unreadCount);
+            })
+            .catch((apiError: Error) => {
+              console.error('API error fetching notifications:', apiError);
+              // Already set empty notifications above, so no need to do it again
+            });
+        }
       } else {
         // If no user is authenticated, set empty notifications
         setNotifications([]);
@@ -64,9 +67,12 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
   };
 
-  const markAsRead = async (id: string) => {
+  const markAsRead = async (id: string): Promise<void> => {
     try {
-      const result = await notificationService.markAsRead(id);
+      const userId = user?.id || staffUser?.id;
+      if (!userId) return;
+
+      await simulatedNotificationService.markAsRead(id);
 
       // Even if the API call fails, update the UI optimistically
       // Update local state
@@ -78,17 +84,17 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
       // Update unread count
       setUnreadCount(prevCount => Math.max(0, prevCount - 1));
-
-      return result;
     } catch (err: any) {
       console.error('Error marking notification as read:', err);
       // Don't show error to user, just log it
-      return null;
     }
   };
 
-  const markAllAsRead = async () => {
+  const markAllAsRead = async (): Promise<void> => {
     try {
+      const userId = user?.id || staffUser?.id;
+      if (!userId) return;
+
       // Even if the API call fails, update the UI optimistically
       // Update local state first
       setNotifications(prevNotifications =>
@@ -99,15 +105,18 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       setUnreadCount(0);
 
       // Then make the API call
-      await notificationService.markAllAsRead();
+      await simulatedNotificationService.markAllAsRead(userId);
     } catch (err: any) {
       console.error('Error marking all notifications as read:', err);
       // Don't show error to user, just log it
     }
   };
 
-  const deleteNotification = async (id: string) => {
+  const deleteNotification = async (id: string): Promise<void> => {
     try {
+      const userId = user?.id || staffUser?.id;
+      if (!userId) return;
+
       // Find the notification before removing it from state
       const deletedNotification = notifications.find(n => n.id === id);
 
@@ -123,125 +132,62 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       }
 
       // Then make the API call
-      await notificationService.deleteNotification(id);
+      await simulatedNotificationService.deleteNotification(id);
     } catch (err: any) {
       console.error('Error deleting notification:', err);
       // Don't show error to user, just log it
     }
   };
 
-  const deleteAllNotifications = async () => {
+  const deleteAllNotifications = async (): Promise<void> => {
     try {
+      const userId = user?.id || staffUser?.id;
+      if (!userId) return;
+
       // Even if the API call fails, update the UI optimistically
       // Update local state first
       setNotifications([]);
       setUnreadCount(0);
 
       // Then make the API call
-      await notificationService.deleteAllNotifications();
+      await simulatedNotificationService.deleteAllNotifications(userId);
     } catch (err: any) {
       console.error('Error deleting all notifications:', err);
       // Don't show error to user, just log it
     }
   };
 
-  // Set up real-time subscription to notifications
+  // Disabled real-time subscription to notifications - using simulated data instead
   useEffect(() => {
-    // Only set up subscription if a user is authenticated
+    // Only fetch notifications if a user is authenticated
     if (!isUserAuthenticated() && !isStaffAuthenticated()) return;
 
-    // Set up Supabase real-time subscription
+    // Get user ID
     const userId = user?.id || staffUser?.id;
-    if (!userId) return;
-
-    let channel;
-    try {
-      channel = supabase
-        .channel(`public:notifications:user_id=eq.${userId}`)
-        .on('postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'notifications',
-            filter: `user_id=eq.${userId}`
-          },
-          (payload) => {
-            // Add new notification to state
-            const newNotification = payload.new as NotificationData;
-            setNotifications(prev => [newNotification, ...prev]);
-
-            // Update unread count
-            if (!newNotification.is_read) {
-              setUnreadCount(prev => prev + 1);
-            }
-          }
-        )
-        .on('postgres_changes',
-          {
-            event: 'UPDATE',
-            schema: 'public',
-            table: 'notifications',
-            filter: `user_id=eq.${userId}`
-          },
-          (payload) => {
-            // Update notification in state
-            const updatedNotification = payload.new as NotificationData;
-            setNotifications(prev =>
-              prev.map(notification =>
-                notification.id === updatedNotification.id ? updatedNotification : notification
-              )
-            );
-
-            // Update unread count if read status changed
-            if (payload.old && !payload.old.is_read && updatedNotification.is_read) {
-              setUnreadCount(prev => Math.max(0, prev - 1));
-            }
-          }
-        )
-        .on('postgres_changes',
-          {
-            event: 'DELETE',
-            schema: 'public',
-            table: 'notifications',
-            filter: `user_id=eq.${userId}`
-          },
-          (payload) => {
-            // Remove notification from state
-            const deletedNotification = payload.old as NotificationData;
-            setNotifications(prev =>
-              prev.filter(notification => notification.id !== deletedNotification.id)
-            );
-
-            // Update unread count if deleted notification was unread
-            if (!deletedNotification.is_read) {
-              setUnreadCount(prev => Math.max(0, prev - 1));
-            }
-          }
-        )
-        .subscribe((status) => {
-          if (status === 'SUBSCRIBED') {
-            console.log('Successfully subscribed to notifications');
-          } else if (status === 'CHANNEL_ERROR') {
-            console.error('Error subscribing to notifications');
-          }
-        });
-    } catch (err) {
-      console.error('Error setting up real-time subscription:', err);
-      // Continue without real-time updates if there's an error
+    if (!userId) {
+      console.log('No user ID available, skipping notification fetch');
+      return;
     }
+
+    console.log('Using simulated notifications for user:', userId);
 
     // Fetch initial notifications
     fetchNotifications();
 
-    // Clean up subscription on unmount
-    return () => {
-      if (channel) {
-        try {
-          supabase.removeChannel(channel);
-        } catch (err) {
-          console.error('Error removing channel:', err);
-        }
+    // Set up a polling interval to simulate real-time updates
+    const interval = setInterval(() => {
+      // Randomly decide whether to add a new notification (10% chance)
+      const shouldAddNotification = Math.random() < 0.1;
+
+      if (shouldAddNotification) {
+        console.log('Simulating a new notification');
+        fetchNotifications();
       }
+    }, 30000); // Check every 30 seconds
+
+    // Clean up the interval when the component unmounts
+    return () => {
+      clearInterval(interval);
     };
   }, [user?.id, staffUser?.id, isUserAuthenticated, isStaffAuthenticated]);
 

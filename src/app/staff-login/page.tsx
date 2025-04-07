@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { FiUser, FiKey, FiArrowLeft } from 'react-icons/fi';
 import { useAuth } from '@/contexts/AuthContext';
 import staffAuthService from '../../services/staff-auth.service';
@@ -40,10 +41,27 @@ export default function StaffLogin() {
     checkAuth();
   }, [isStaffAuthenticated, isUserAuthenticated, router]);
 
+  // Auto-fill the form with the CEO code for testing
+  useEffect(() => {
+    // Check if the URL has a query parameter for auto-filling
+    const params = new URLSearchParams(window.location.search);
+    const autoFillCode = params.get('code');
+    if (autoFillCode) {
+      setAccessCode(autoFillCode);
+    }
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
+
+    // If no access code is provided, show an error
+    if (!accessCode) {
+      setError('Please enter your staff access code');
+      setLoading(false);
+      return;
+    }
 
     try {
       // Clear any existing auth data to prevent conflicts
@@ -56,7 +74,7 @@ export default function StaffLogin() {
 
       // Call the staff auth service to login
       await staffAuthService.login({
-        fullName,
+        fullName: fullName || 'Staff User', // Use a default name if none provided
         accessCode
       });
 
@@ -90,8 +108,15 @@ export default function StaffLogin() {
 
           <div className="bg-white rounded-lg shadow-md p-8">
             <div className="text-center mb-8">
+              <Image
+                src="/logo.png"
+                alt="Bridging Gaps Foundation"
+                width={250}
+                height={100}
+                className="mx-auto mb-6"
+              />
               <h1 className="text-3xl font-playfair font-semibold mb-2">Staff Access</h1>
-              <p className="text-text-secondary">Enter your name and access code to continue</p>
+              <p className="text-text-secondary">Enter your email and access code to continue</p>
             </div>
 
             {error && (

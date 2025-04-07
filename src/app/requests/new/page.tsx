@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import Card from '@/components/ui/Card';
@@ -11,6 +11,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { requestService } from '@/services/request.service';
 import { ROUTES } from '@/app/routes';
 import { REQUEST_TYPES, REQUEST_TYPE_LABELS } from '@/constants/request.constants';
+import { getTemplateByType } from '@/constants/request-templates';
 
 export default function NewRequest() {
   const router = useRouter();
@@ -25,14 +26,87 @@ export default function NewRequest() {
   const [files, setFiles] = useState<File[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [apiError, setApiError] = useState<string | null>(null);
+  const [showPreview, setShowPreview] = useState(false);
+  const [draftSaved, setDraftSaved] = useState(false);
+  const [draftLoaded, setDraftLoaded] = useState(false);
+
+  // Load draft from localStorage when component mounts
+  useEffect(() => {
+    try {
+      const savedDraft = localStorage.getItem('bgf.request.draft');
+      if (savedDraft) {
+        const parsedDraft = JSON.parse(savedDraft);
+
+        // Check if the draft is less than 7 days old
+        const draftDate = new Date(parsedDraft.timestamp);
+        const now = new Date();
+        const diffTime = Math.abs(now.getTime() - draftDate.getTime());
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        if (diffDays <= 7) {
+          // Set the form data from the draft
+          setFormData(parsedDraft.formData);
+          setDraftLoaded(true);
+        } else {
+          // Draft is too old, remove it
+          localStorage.removeItem('bgf.request.draft');
+        }
+      }
+    } catch (error) {
+      console.error('Error loading draft:', error);
+    }
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
+
+    // If the request type changes, check if we should apply a template
+    if (name === 'request_type' && value !== formData.request_type) {
+      // Only apply template if the form is mostly empty
+      const isFormEmpty = !formData.title.trim() && !formData.description.trim();
+
+      if (isFormEmpty) {
+        const template = getTemplateByType(value);
+        if (template) {
+          setFormData({
+            ...formData,
+            request_type: value,
+            title: template.title,
+            description: template.description,
+            amount: template.amount || '',
+          });
+          return;
+        }
+      }
+    }
+
     setFormData({ ...formData, [name]: value });
 
     // Clear error when field is edited
     if (errors[name]) {
       setErrors({ ...errors, [name]: '' });
+    }
+  };
+
+  // Function to apply a template manually
+  const applyTemplate = (requestType: string) => {
+    const template = getTemplateByType(requestType);
+    if (template) {
+      // Ask for confirmation if the form has data
+      const hasData = formData.title.trim() || formData.description.trim();
+
+      if (hasData) {
+        const confirmed = window.confirm('Applying a template will replace your current form data. Continue?');
+        if (!confirmed) return;
+      }
+
+      setFormData({
+        ...formData,
+        request_type: template.request_type,
+        title: template.title,
+        description: template.description,
+        amount: template.amount || '',
+      });
     }
   };
 
@@ -94,7 +168,7 @@ export default function NewRequest() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handlePreview = (e: React.FormEvent) => {
     e.preventDefault();
     setApiError(null);
 
@@ -102,6 +176,11 @@ export default function NewRequest() {
       return;
     }
 
+    // Show preview
+    setShowPreview(true);
+  };
+
+  const handleSubmit = async () => {
     try {
       setLoading(true);
 
@@ -114,13 +193,16 @@ export default function NewRequest() {
 
         // Upload documents if any
         if (files.length > 0) {
-          const formData = new FormData();
+          const uploadFormData = new FormData();
           files.forEach(file => {
-            formData.append('documents', file);
+            uploadFormData.append('documents', file);
           });
 
-          await requestService.uploadDocuments(requestData.id, formData);
+          await requestService.uploadDocuments(requestData.id, uploadFormData);
         }
+
+        // Clear the draft since the request was submitted successfully
+        localStorage.removeItem('bgf.request.draft');
 
         // Success! Redirect to requests list
         router.push(ROUTES.REQUESTS);
@@ -132,13 +214,52 @@ export default function NewRequest() {
 
         // In development mode, we'll still allow viewing the form
         setLoading(false);
+        setShowPreview(false);
         return;
       }
     } catch (err: any) {
       console.error('Error creating request:', err);
       setApiError(err.message || 'An unexpected error occurred. Please try again.');
+      setShowPreview(false);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const cancelPreview = () => {
+    setShowPreview(false);
+  };
+
+  const saveDraft = () => {
+    // Save the current form data to localStorage
+    const draft = {
+      formData,
+      timestamp: new Date().toISOString()
+    };
+
+    try {
+      // We can't save the actual File objects, so we'll just save the file names
+      const fileNames = files.map(file => ({
+        name: file.name,
+        size: file.size,
+        type: file.type
+      }));
+
+      localStorage.setItem('bgf.request.draft', JSON.stringify({
+        ...draft,
+        fileNames
+      }));
+
+      setDraftSaved(true);
+
+      // Show a success message that disappears after 3 seconds
+      setTimeout(() => {
+        setDraftSaved(false);
+      }, 3000);
+    } catch (error) {
+      console.error('Error saving draft:', error);
+      // Show an error message
+      setApiError('Failed to save draft. Please try again.');
     }
   };
 
@@ -159,7 +280,60 @@ export default function NewRequest() {
         />
       )}
 
-      <form onSubmit={handleSubmit}>
+      {showPreview ? (
+        <Card className="p-6">
+          <h2 className="text-2xl font-playfair font-semibold mb-6">Preview Your Request</h2>
+
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-lg font-medium mb-2">Title</h3>
+              <p className="p-3 bg-slate-gray/5 rounded-md">{formData.title}</p>
+            </div>
+
+            <div>
+              <h3 className="text-lg font-medium mb-2">Request Type</h3>
+              <p className="p-3 bg-slate-gray/5 rounded-md">{REQUEST_TYPE_LABELS[formData.request_type]}</p>
+            </div>
+
+            {formData.amount && (
+              <div>
+                <h3 className="text-lg font-medium mb-2">Amount</h3>
+                <p className="p-3 bg-slate-gray/5 rounded-md">${Number(formData.amount).toLocaleString()}</p>
+              </div>
+            )}
+
+            <div>
+              <h3 className="text-lg font-medium mb-2">Description</h3>
+              <div className="p-3 bg-slate-gray/5 rounded-md whitespace-pre-wrap">{formData.description}</div>
+            </div>
+
+            {files.length > 0 && (
+              <div>
+                <h3 className="text-lg font-medium mb-2">Attached Documents</h3>
+                <ul className="p-3 bg-slate-gray/5 rounded-md">
+                  {files.map((file, index) => (
+                    <li key={index} className="flex items-center py-1">
+                      <span className="mr-2">📎</span>
+                      <span>{file.name}</span>
+                      <span className="ml-2 text-text-muted text-sm">({(file.size / 1024).toFixed(1)} KB)</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <div className="flex justify-between pt-4">
+              <Button variant="secondary" onClick={cancelPreview} disabled={loading}>
+                Edit Request
+              </Button>
+              <Button variant="primary" onClick={handleSubmit} disabled={loading}>
+                {loading ? 'Submitting...' : 'Confirm & Submit'}
+              </Button>
+            </div>
+          </div>
+        </Card>
+      ) : (
+        <form onSubmit={handlePreview}>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2">
             <Card>
@@ -212,6 +386,19 @@ export default function NewRequest() {
                       ))}
                     </select>
                     {errors.request_type && <p className="text-terracotta text-sm mt-1">{errors.request_type}</p>}
+
+                    <div className="mt-2">
+                      <button
+                        type="button"
+                        onClick={() => applyTemplate(formData.request_type)}
+                        className="text-sm text-bgf-burgundy hover:text-deep-burgundy underline"
+                      >
+                        Use template for {REQUEST_TYPE_LABELS[formData.request_type]}
+                      </button>
+                      <p className="text-xs text-text-muted mt-1">
+                        Templates provide pre-filled content for common request types
+                      </p>
+                    </div>
                   </div>
 
                   <div>
@@ -330,22 +517,47 @@ export default function NewRequest() {
                   </ol>
                 </div>
 
-                <div className="pt-4">
-                  <Button
-                    variant="primary"
-                    className="w-full justify-center"
-                    type="submit"
-                    disabled={loading}
-                  >
-                    <FiSave className="mr-2" />
-                    {loading ? 'Submitting...' : 'Submit Request'}
-                  </Button>
+                <div className="pt-4 space-y-3">
+                  {draftSaved && (
+                    <div className="bg-green-50 text-green-700 p-3 rounded-md text-center text-sm">
+                      Draft saved successfully! You can continue later.
+                    </div>
+                  )}
+
+                  {draftLoaded && !draftSaved && (
+                    <div className="bg-blue-50 text-blue-700 p-3 rounded-md text-center text-sm mb-3">
+                      Draft loaded from your last session.
+                    </div>
+                  )}
+
+                  <div className="flex gap-3">
+                    <Button
+                      variant="secondary"
+                      className="flex-1 justify-center"
+                      type="button"
+                      onClick={saveDraft}
+                      disabled={loading}
+                    >
+                      <FiSave className="mr-2" />
+                      Save Draft
+                    </Button>
+
+                    <Button
+                      variant="primary"
+                      className="flex-1 justify-center"
+                      type="submit"
+                      disabled={loading}
+                    >
+                      {loading ? 'Processing...' : 'Preview Request'}
+                    </Button>
+                  </div>
                 </div>
               </div>
             </Card>
           </div>
         </div>
-      </form>
+        </form>
+      )}
     </DashboardLayout>
   );
 }

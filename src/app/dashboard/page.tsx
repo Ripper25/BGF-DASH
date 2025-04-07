@@ -73,10 +73,10 @@ export default function Dashboard() {
       );
     }
 
-    console.log('Dashboard: User found, role:', user.role);
+    console.log('Dashboard: User found, role:', user.role, 'isStaff:', user.isStaff, 'Full user object:', user);
     switch (user.role) {
       case USER_ROLES.ASSISTANT_PROJECT_OFFICER:
-      case USER_ROLES.REGIONAL_PROJECT_MANAGER:
+      case USER_ROLES.PROJECT_MANAGER: // Changed from REGIONAL_PROJECT_MANAGER to match USER_ROLES
         return <OfficerDashboard />;
 
       case USER_ROLES.HEAD_OF_PROGRAMS:

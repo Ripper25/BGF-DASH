@@ -1,5 +1,5 @@
 // API URL for backend services
-export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
 
 // JWT secret for staff authentication
 export const JWT_SECRET = process.env.JWT_SECRET || 'bgf-dashboard-secret-key';

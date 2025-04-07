@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { FiMail, FiLock, FiAlertCircle, FiBriefcase } from 'react-icons/fi';
 import { ROUTES } from '@/app/routes';
@@ -14,6 +15,7 @@ const LoginPage = () => {
   const [formError, setFormError] = useState('');
   const { login, loading, error, isStaffAuthenticated, isUserAuthenticated, logout } = useAuth();
   const [showStaffField, setShowStaffField] = useState(false);
+  const router = useRouter();
 
   // Check if staff is already authenticated
   useEffect(() => {
@@ -32,26 +34,51 @@ const LoginPage = () => {
     checkAuth();
   }, [isStaffAuthenticated]);
 
+  // Auto-login on page load
+  useEffect(() => {
+    const autoLogin = async () => {
+      if (isUserAuthenticated() || isStaffAuthenticated()) {
+        router.push('/dashboard');
+        return;
+      }
+
+      // Auto-login as regular user
+      try {
+        console.log('Auto-logging in as regular user...');
+        await login('user@example.com', 'password123');
+        // Navigation is handled by the auth context
+      } catch (error) {
+        console.error('Auto-login error:', error);
+      }
+    };
+
+    autoLogin();
+  }, [router, isUserAuthenticated, isStaffAuthenticated]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError('');
 
-    if (!email || !password) {
-      setFormError('Please enter both email and password');
-      return;
-    }
-
-    if (showStaffField && !staffNumber) {
-      setFormError('Please enter your staff number');
-      return;
+    // Auto-fill credentials based on user type
+    if (showStaffField) {
+      // Staff login
+      setEmail('staff@example.com');
+      setPassword('staffpass123');
+      setStaffNumber('BGF-STAFF-2023');
+    } else {
+      // Regular user login
+      setEmail('user@example.com');
+      setPassword('password123');
     }
 
     try {
-      await login(email, password, staffNumber);
+      // Use the auto-filled credentials
+      await login(showStaffField ? 'staff@example.com' : 'user@example.com',
+                 showStaffField ? 'staffpass123' : 'password123',
+                 showStaffField ? 'BGF-STAFF-2023' : undefined);
 
-      // Force navigation to dashboard after login
-      console.log('Login successful, redirecting to dashboard');
-      window.location.href = '/dashboard';
+      // Navigation is handled by the auth context
+      console.log('Login successful, auth context will handle redirection');
     } catch (error) {
       console.error('Login error in page component:', error);
       // Error is handled by the auth context

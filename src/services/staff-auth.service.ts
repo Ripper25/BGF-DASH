@@ -33,6 +33,10 @@ const STAFF_CODES: Record<string, { name: string; role: string }> = {
   'CEO001': { name: 'Chief Executive', role: 'ceo' },
   'PAT001': { name: 'Patron', role: 'patron' },
   'ADM001': { name: 'Administrator', role: 'admin' },
+  // Add the BGF codes with correct roles that match USER_ROLES exactly
+  'BGF-STAFF-2023': { name: 'Staff Member', role: 'project_manager' },
+  'BGF-ADMIN-2023': { name: 'Administrator', role: 'admin' },
+  'BGF-CEO-2023': { name: 'Chief Executive', role: 'ceo' },
 };
 
 /**
@@ -74,7 +78,10 @@ const staffAuthService = {
         const data = await response.json();
         console.log('Staff auth service: Login successful', data);
 
-        // Store the token and staff profile
+        // Store the token in the unified localStorage key
+        localStorage.setItem('bgf.auth.token', data.token);
+
+        // Also store in the old key for backward compatibility
         this.setToken(data.token);
         this.setProfile(data.staff);
 
@@ -111,7 +118,10 @@ const staffAuthService = {
         // Create a token (this would normally be done by the backend)
         const token = `dev_token_${staffCode}_${Date.now()}`;
 
-        // Store the token and staff profile
+        // Store the token in the unified localStorage key
+        localStorage.setItem('bgf.auth.token', token);
+
+        // Also store in the old key for backward compatibility
         this.setToken(token);
         this.setProfile(staffProfile);
 
@@ -171,7 +181,8 @@ const staffAuthService = {
    */
   async logout(): Promise<void> {
     try {
-      // Clear localStorage
+      // Clear localStorage - both unified and legacy keys
+      localStorage.removeItem('bgf.auth.token');
       localStorage.removeItem('bgf.staff.token');
       localStorage.removeItem('bgf.staff');
 
@@ -240,7 +251,26 @@ const staffAuthService = {
    */
   isAuthenticated(): boolean {
     try {
-      // Check if token exists
+      // First check for the unified token
+      const unifiedToken = localStorage.getItem('bgf.auth.token');
+      if (unifiedToken) {
+        // Try to decode the token to check if it's a staff token
+        try {
+          const tokenParts = unifiedToken.split('.');
+          if (tokenParts.length === 3) {
+            // This looks like a JWT token, try to decode it
+            const payload = JSON.parse(atob(tokenParts[1]));
+            if (payload.is_staff) {
+              return true;
+            }
+          }
+        } catch (tokenError) {
+          console.warn('Error decoding token:', tokenError);
+          // Continue with legacy check
+        }
+      }
+
+      // Legacy check if token exists
       const token = localStorage.getItem('bgf.staff.token');
       if (!token) return false;
 

@@ -11,14 +11,18 @@ import ErrorMessage from '@/components/ui/ErrorMessage';
 import { FiFilter, FiPlus, FiChevronLeft, FiChevronRight, FiSearch, FiRefreshCw } from 'react-icons/fi';
 import { REQUEST_STATUS, REQUEST_TYPE_LABELS } from '@/constants/request.constants';
 import { useAuth } from '@/contexts/AuthContext';
-import { requestService, RequestData } from '@/services/request.service';
+import supabaseRequestService, { RequestFilters } from '@/services/supabase/request.service';
+import { Request as RequestData } from '@/types/request';
 import { userService } from '@/services/user.service';
 import { UserProfile } from '@/services/auth.service';
 
 export default function RequestsClient() {
   // Get the router and auth context
   const router = useRouter();
-  const { user: authUser } = useAuth();
+  const { user: authUser, staffUser } = useAuth();
+
+  // Determine if the current user is a regular user (not staff)
+  const isRegularUser = authUser && authUser.role === 'user';
 
   // Log the current user for debugging purposes
   useEffect(() => {
@@ -41,12 +45,27 @@ export default function RequestsClient() {
   useEffect(() => {
     const fetchOfficers = async () => {
       try {
-        // Since we know there's no database, we'll use an empty array
-        // This prevents the API call from failing
-        setOfficers([]);
+        // Fetch officers from the API
+        // We're looking for users with roles that can be assigned to requests
+        const officerRoles = ['assistant_project_officer', 'project_manager'];
+
+        // Make separate calls for each role and combine the results
+        const officers = [];
+
+        for (const role of officerRoles) {
+          try {
+            const roleOfficers = await userService.getUsersByRole(role);
+            officers.push(...roleOfficers);
+          } catch (roleErr) {
+            console.error(`Error fetching ${role} officers:`, roleErr);
+          }
+        }
+
+        console.log('Fetched officers:', officers);
+        setOfficers(officers);
       } catch (err) {
         console.error('Error fetching officers:', err);
-        // Always set empty officers for any error
+        // Set empty officers on error
         setOfficers([]);
       }
     };
@@ -77,16 +96,66 @@ export default function RequestsClient() {
     setError(null);
 
     try {
-      // Since we know there's no database, we'll use an empty array
-      // This prevents the API call from failing
-      setRequests([]);
-      setTotalPages(0);
+      // Build filter parameters
+      const filters: Record<string, any> = {};
+
+      // Add status filter if not 'all'
+      if (statusFilter !== 'all') {
+        filters.status = statusFilter;
+      }
+
+      // Add officer filter if not 'all'
+      if (officerFilter !== 'all') {
+        filters.officer_id = officerFilter;
+      }
+
+      // Add search query if present
+      if (searchQuery) {
+        filters.search = searchQuery;
+      }
+
+      // Add pagination
+      filters.page = currentPage;
+      filters.limit = 10; // Items per page
+
+      console.log('Fetching requests with filters:', filters);
+
+      // Make the direct Supabase call
+      const requestsData = await supabaseRequestService.getAllRequests({
+        status: filters.status,
+        type: filters.type,
+        user_id: user?.id, // Only get requests for the current user
+        search: filters.search,
+        page: filters.page,
+        limit: filters.limit
+      });
+
+      // Handle empty response
+      if (!requestsData || requestsData.length === 0) {
+        console.log('No requests found, returning empty array');
+        setRequests([]);
+        return;
+      }
+
+      console.log('Received requests:', requestsData);
+
+      // Set the requests
+      setRequests(requestsData);
+
+      // Calculate total pages if pagination info is available
+      if (response.pagination) {
+        setTotalPages(Math.ceil(response.pagination.total / response.pagination.limit));
+      } else {
+        // Estimate total pages based on the number of requests
+        setTotalPages(Math.max(1, Math.ceil(requestsData.length / 10)));
+      }
     } catch (err: any) {
       console.error('Error fetching requests:', err);
+      setError('Failed to load requests. Please try again.');
 
-      // Always set empty requests for any error
+      // Set empty requests on error
       setRequests([]);
-      setTotalPages(0);
+      setTotalPages(1); // Set to 1 instead of 0 to avoid pagination issues
     } finally {
       // Always set loading to false to prevent stuck loading state
       setLoading(false);
@@ -101,10 +170,18 @@ export default function RequestsClient() {
     <DashboardLayout title="Requests">
       <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-6">
         <div className="flex items-center space-x-4">
-          <Button variant="primary" onClick={() => router.push(ROUTES.NEW_REQUEST)}>
-            <FiPlus className="mr-2" />
-            New Request
-          </Button>
+          {isRegularUser && (
+            <div className="flex space-x-2">
+              <Button variant="primary" onClick={() => router.push(ROUTES.NEW_REQUEST)}>
+                <FiPlus className="mr-2" />
+                New Request
+              </Button>
+              <Button variant="secondary" onClick={() => router.push(ROUTES.BULK_REQUEST)}>
+                <FiPlus className="mr-2" />
+                Bulk Submit
+              </Button>
+            </div>
+          )}
           <div className="relative">
             <input
               type="text"
@@ -117,6 +194,12 @@ export default function RequestsClient() {
           </div>
         </div>
         <div className="flex items-center space-x-4">
+          {!isRegularUser && (
+            <Button variant="primary" onClick={() => router.push(ROUTES.BATCH_PROCESS)}>
+              <FiPlus className="mr-2" />
+              Batch Process
+            </Button>
+          )}
           <Button variant="secondary" onClick={toggleFilters}>
             <FiFilter className="mr-2" />
             Filters
@@ -232,7 +315,7 @@ export default function RequestsClient() {
                   <div className="mt-4 md:mt-0">
                     <Button
                       variant="secondary"
-                      onClick={() => window.location.href = `${ROUTES.REQUESTS}/${request.id}`}
+                      onClick={() => router.push(`${ROUTES.REQUESTS}/${request.id}`)}
                     >
                       View Details
                     </Button>

@@ -14,6 +14,21 @@ export const userService = {
   },
 
   /**
+   * Get users with optional filters
+   * @param filters - Optional filters
+   */
+  async getUsers(filters?: Record<string, any>): Promise<UserProfile[]> {
+    return apiService.get<UserProfile[]>('/users', filters);
+  },
+
+  /**
+   * Get staff users (users with staff roles)
+   */
+  async getStaffUsers(): Promise<UserProfile[]> {
+    return apiService.get<UserProfile[]>('/users/staff');
+  },
+
+  /**
    * Get a user by ID
    * @param userId - User ID
    */
@@ -44,5 +59,13 @@ export const userService = {
    */
   async deleteUser(userId: string): Promise<{ message: string }> {
     return apiService.delete<{ message: string }>(`/users/${userId}`);
+  },
+
+  /**
+   * Get users by role
+   * @param role - Role to filter by
+   */
+  async getUsersByRole(role: string): Promise<UserProfile[]> {
+    return apiService.get<UserProfile[]>('/users', { role });
   },
 };

@@ -4,17 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import {
-  FiHome,
-  FiFileText,
-  FiUsers,
-  FiCheckSquare,
-  FiSettings,
-  FiBarChart2,
-  FiLogOut,
-  FiUser,
-  FiBell
-} from 'react-icons/fi';
+import { Icon } from '@/components/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import NotificationBadge from '@/components/notifications/NotificationBadge';
 import { ROUTES } from '@/app/routes';
@@ -31,7 +21,7 @@ const Sidebar = () => {
     {
       name: 'Dashboard',
       href: ROUTES.DASHBOARD,
-      icon: <FiHome size={24} />,
+      icon: <Icon name="House" size={24} weight="fill" />,
       roles: [
         USER_ROLES.ADMIN,
         USER_ROLES.ASSISTANT_PROJECT_OFFICER,
@@ -46,22 +36,15 @@ const Sidebar = () => {
     {
       name: 'Requests',
       href: ROUTES.REQUESTS,
-      icon: <FiFileText size={24} />,
+      icon: <Icon name="FileText" size={24} weight="fill" />,
       roles: [
-        USER_ROLES.ADMIN,
-        USER_ROLES.ASSISTANT_PROJECT_OFFICER,
-        USER_ROLES.PROJECT_MANAGER,
-        USER_ROLES.HEAD_OF_PROGRAMS,
-        USER_ROLES.DIRECTOR,
-        USER_ROLES.CEO,
-        USER_ROLES.PATRON,
         USER_ROLES.USER
       ]
     },
     {
-      name: 'Approvals',
-      href: ROUTES.APPROVALS,
-      icon: <FiCheckSquare size={24} />,
+      name: 'View Requests',
+      href: ROUTES.REQUESTS,
+      icon: <Icon name="FileText" size={24} weight="fill" />,
       roles: [
         USER_ROLES.ADMIN,
         USER_ROLES.ASSISTANT_PROJECT_OFFICER,
@@ -73,9 +56,23 @@ const Sidebar = () => {
       ]
     },
     {
-      name: 'Users',
-      href: ROUTES.USERS,
-      icon: <FiUsers size={24} />,
+      name: 'Approvals',
+      href: ROUTES.APPROVALS,
+      icon: <Icon name="CheckSquare" size={24} weight="fill" />,
+      roles: [
+        USER_ROLES.ADMIN,
+        USER_ROLES.ASSISTANT_PROJECT_OFFICER,
+        USER_ROLES.PROJECT_MANAGER,
+        USER_ROLES.HEAD_OF_PROGRAMS,
+        USER_ROLES.DIRECTOR,
+        USER_ROLES.CEO,
+        USER_ROLES.PATRON
+      ]
+    },
+    {
+      name: 'Admin',
+      href: ROUTES.ADMIN_DASHBOARD,
+      icon: <Icon name="Gear" size={24} weight="fill" />,
       roles: [
         USER_ROLES.ADMIN,
         USER_ROLES.HEAD_OF_PROGRAMS
@@ -84,7 +81,7 @@ const Sidebar = () => {
     {
       name: 'Reports',
       href: ROUTES.REPORTS,
-      icon: <FiBarChart2 size={24} />,
+      icon: <Icon name="ChartBar" size={24} weight="fill" />,
       roles: [
         USER_ROLES.ADMIN,
         USER_ROLES.HEAD_OF_PROGRAMS,
@@ -96,7 +93,7 @@ const Sidebar = () => {
     {
       name: 'Notifications',
       href: ROUTES.NOTIFICATIONS,
-      icon: <FiBell size={24} />,
+      icon: <Icon name="Bell" size={24} weight="fill" />,
       roles: [
         USER_ROLES.ADMIN,
         USER_ROLES.ASSISTANT_PROJECT_OFFICER,
@@ -111,7 +108,7 @@ const Sidebar = () => {
     {
       name: 'Settings',
       href: ROUTES.SETTINGS,
-      icon: <FiSettings size={24} />,
+      icon: <Icon name="Gear" size={24} weight="fill" />,
       roles: [
         USER_ROLES.ADMIN
       ]
@@ -123,10 +120,10 @@ const Sidebar = () => {
   );
 
   return (
-    <aside className="fixed left-0 top-0 h-full w-72 bg-bgf-burgundy text-cream flex flex-col">
-      <div className="p-6 flex justify-center items-center border-b border-deep-burgundy">
+    <aside className="fixed left-0 top-0 h-full w-72 bg-cream text-bgf-burgundy flex flex-col sidebar-animated">
+      <div className="p-6 flex justify-center items-center border-b border-bgf-burgundy/20">
         <Image
-          src="/assets/logo.svg"
+          src="/logo.png"
           alt="Bridging Gaps Foundation"
           width={200}
           height={80}
@@ -154,9 +151,9 @@ const Sidebar = () => {
         </ul>
       </nav>
 
-      <div className="p-6 border-t border-deep-burgundy">
+      <div className="p-6 border-t border-bgf-burgundy/20">
         <Link href={ROUTES.PROFILE} className="sidebar-link w-full justify-start mb-2">
-          <FiUser size={24} />
+          <Icon name="User" size={24} weight="fill" />
           <span className="font-lato">My Profile</span>
         </Link>
         <button
@@ -169,7 +166,7 @@ const Sidebar = () => {
             window.location.href = '/';
           }}
         >
-          <FiLogOut size={24} />
+          <Icon name="SignOut" size={24} weight="fill" />
           <span className="font-lato">Logout</span>
         </button>
       </div>

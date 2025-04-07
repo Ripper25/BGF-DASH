@@ -75,8 +75,8 @@ const RequestModel = {
       .select(`
         *,
         user:users(*),
-        documents:request_documents(*),
-        workflow:request_workflow(*)
+        documents:request_documents!request_id(*),
+        workflow:request_workflow!request_id(*)
       `)
       .eq('id', requestId)
       .single();
@@ -99,8 +99,8 @@ const RequestModel = {
       .select(`
         *,
         user:users(*),
-        documents:request_documents(*),
-        workflow:request_workflow(*)
+        documents:request_documents!request_id(*),
+        workflow:request_workflow!request_id(*)
       `)
       .eq('ticket_number', ticketNumber)
       .single();
@@ -123,8 +123,8 @@ const RequestModel = {
       .select(`
         *,
         user:users(id, full_name, email),
-        documents:request_documents(id, file_name, file_type),
-        workflow:request_workflow(id, current_stage, assigned_to)
+        documents:request_documents!request_id(id, file_name, file_type),
+        workflow:request_workflow!request_id(id, current_stage, assigned_to)
       `);
 
     // Apply filters

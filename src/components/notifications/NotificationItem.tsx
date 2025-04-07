@@ -1,8 +1,9 @@
 "use client";
 
 import React from 'react';
-import { FiInfo, FiCheckCircle, FiAlertTriangle, FiXCircle, FiX, FiCheck } from 'react-icons/fi';
+import { FiInfo, FiCheckCircle, FiAlertTriangle, FiXCircle, FiX, FiCheck, FiTag } from 'react-icons/fi';
 import { NotificationData } from '@/services/notification.service';
+import { NOTIFICATION_CATEGORY_LABELS, NOTIFICATION_CATEGORY_COLORS } from '@/constants/notification-categories';
 
 interface NotificationItemProps {
   notification: NotificationData;
@@ -89,9 +90,17 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
           <p className="mt-1 text-sm text-text-muted">
             {notification.message}
           </p>
-          <p className="mt-1 text-xs text-text-muted">
-            {getTimeAgo(notification.created_at)}
-          </p>
+          <div className="mt-2 flex items-center justify-between">
+            <p className="text-xs text-text-muted">
+              {getTimeAgo(notification.created_at)}
+            </p>
+            {notification.category && (
+              <div className={`flex items-center px-2 py-1 rounded-full text-xs ${NOTIFICATION_CATEGORY_COLORS[notification.category] || 'bg-slate-gray/10 text-text-secondary'}`}>
+                <FiTag className="mr-1" size={10} />
+                {NOTIFICATION_CATEGORY_LABELS[notification.category] || notification.category}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
