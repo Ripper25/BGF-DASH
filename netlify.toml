@@ -22,3 +22,6 @@
   NEXT_PUBLIC_SUPABASE_URL = "https://roqzswykxwyzyoeazqiu.supabase.co"
   NEXT_PUBLIC_API_URL = "/.netlify/functions/api-proxy"
   BACKEND_URL = "https://bgf-dash-backend.onrender.com"
+
+# This comment is added to create a new commit for the netlify-main branch
+# Explicitly handling submodule issue for Netlify deployment

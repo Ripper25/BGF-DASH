@@ -39,3 +39,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Netlify specific
+.netlify
+
+# Explicitly do NOT ignore bgf-dashboard for Netlify deployment
+# /bgf-dashboard
