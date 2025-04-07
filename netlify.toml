@@ -1,0 +1,24 @@
+[build]
+  base = "/"
+  command = "npm run build"
+  publish = ".next"
+  functions = "netlify/functions"
+
+# Redirect all API requests to our Netlify function
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api-proxy/:splat"
+  status = 200
+  force = true
+  headers = {Access-Control-Allow-Origin = "*"}
+
+# Handle SPA routing for Next.js
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[build.environment]
+  NEXT_PUBLIC_SUPABASE_URL = "https://roqzswykxwyzyoeazqiu.supabase.co"
+  NEXT_PUBLIC_API_URL = "/.netlify/functions/api-proxy"
+  BACKEND_URL = "https://bgf-dash-backend.onrender.com"
